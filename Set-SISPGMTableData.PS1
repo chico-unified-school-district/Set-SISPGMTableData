@@ -54,9 +54,6 @@ $sqlParams = @{
  Credential     = $SQLCredential
 }
 
-# Imported Functions
-. '.\lib\Add-Log.ps1'
-
 if (-not(Get-Module -Name SqlServer -ListAvailable)) {
  Install-Module -Name SqlServer -Scope CurrentUser -Confirm:$false -AllowClobber -Force
 }
@@ -66,6 +63,13 @@ Import-Module -Name SqlServer -Cmdlet 'Invoke-SqlCmd' -ErrorAction Stop | Out-Nu
 Write-Verbose "Adding PSDrive"
 New-PSDrive -name csvshare -Root $CSVRoot -PSProvider FileSystem -Credential $FileSystemCredential | Out-Null
 
+function checkData {
+ process {
+  $id = $_.'Student ID'
+  $refDate = getCCRefDate $ccRefList $id | Select-Object -First 1
+  if (($refDate) -and ($refDate -ne 'NULL') -and ([int]$id -match "\d{5,6}")) { $_ }
+ }
+}
 function getFullName {
  process {
   ( Get-ChildItem -Path csvshare: -Filter $_ ).Fullname
@@ -77,6 +81,20 @@ function formatDate ($someDate, $days) {
   else { Get-Date -Date ((Get-Date -Date $someDate).AddDays($days)) -Format yyyy-MM-dd }
  }
 }
+function formatDupeCheckSQL ([int]$id, $code, $startDate) {
+ "SELECT pid FROM PGM WHERE pid = $id AND CD = `'$code`' AND PSD = `'$startDate`';"
+}
+function formatSQL ([int]$scl, [int]$id, [int]$sq, $code, $startDate, $endDate) {
+ "INSERT INTO PGM(SCL,PID, SQ, CD, ESD, PSD, PED) VALUES ($scl,$id,$sq,`'$code`',`'$startDate`',`'$startDate`',`'$endDate`');"
+}
+function getSCL ([int]$id) {
+ $sql = "SELECT TOP 1 SC FROM STU WHERE ID = $id ORDER BY SC ASC"
+ (Invoke-Sqlcmd @sqlParams -Query $sql).SC | Select-Object -First 1
+}
+function getCCRefDate ($refList, $id) {
+ ($refList.Where( { $_.pid -eq $id | Where-Object { ($null -ne $_.psd) -or ($_.psd -ne 'null') } |
+    Sort-Object -Property psd -Descending | Select-Object -First 1 })).psd
+}
 function getCode ($val) {
  switch ($val) {
   'yes' { 'MQ' }
@@ -84,33 +102,12 @@ function getCode ($val) {
   default { $null }
  }
 }
-function formatDupeCheckSQL ([int]$id, $code, $startDate) {
- "SELECT pid FROM PGM WHERE pid = $id AND CD = `'$code`' AND PSD = `'$startDate`';"
-}
-function getSCL ([int]$id) {
- $sql = "SELECT TOP 1 SC FROM STU WHERE ID = $id ORDER BY SC ASC"
- (Invoke-Sqlcmd @sqlParams -Query $sql).SC | Select-Object -First 1
-}
-function formatSQL ([int]$scl, [int]$id, [int]$sq, $code, $startDate, $endDate) {
- "INSERT INTO PGM(SCL,PID, SQ, CD, ESD, PSD, PED) VALUES ($scl,$id,$sq,`'$code`',`'$startDate`',`'$startDate`',`'$endDate`');"
-}
-function getCCRefDate ($refList, $id) {
- ($refList.Where( { $_.pid -eq $id | Where-Object { ($null -ne $_.psd) -or ($_.psd -ne 'null') } |
-    Sort-Object -Property psd -Descending | Select-Object -First 1 })).psd
-}
 function getNewPGMSQ ($id) {
  # Iterate the sequence number (SQ) to ensure a unique insert
  $i = (Invoke-Sqlcmd @sqlParams -Query "Select TOP 1 SQ FROM PGM WHERE PID = $id ORDER BY SQ DESC").SQ
  if ((0 -eq $i) -or ($null -eq $i)) { 0 } else { $i++; $i }
 }
 
-function checkData {
- process {
-  $id = $_.'Student ID'
-  $refDate = getCCRefDate $ccRefList $id | Select-Object -First 1
-  if (($refDate) -and ($refDate -ne 'NULL') -and ([int]$id -match "\d{5,6}")) { $_ }
- }
-}
 function insertData {
  begin { $i = 0; 'begin processing' }
  process {
@@ -118,7 +115,6 @@ function insertData {
   $code = getCode $_.'Approved'
   Write-Verbose "$id $code"
   $startRefDate = getCCRefDate $ccRefList $id | Select-Object -First 1
-  # if (($null -eq $startRefDate) -or ('' -eq $startRefDate)) { '{0} No startRefDate.' -f $id }
   $startDate = formatDate $startRefDate
   $endDate = formatDate $startRefDate 10
 
@@ -139,8 +135,9 @@ function insertData {
  }
  end { 'Processed Records: ' + $i; 'End insertData' }
 }
-
+function testRun { if ($WhatIf) { '[TEST RUN]' } }
 # Processing
+testRun
 
 # Create reference object from all CC*.csv files in csvshare
 'Ref Lists'
@@ -148,13 +145,11 @@ $refPaths = 'CC_ELM.csv', 'CC_NOVAC.csv' | getFullName
 $ccRefList = Import-CSV -Path $refPaths | Where-Object { ($_.psd -ne 'NULL') -and ($null -ne $_.psd) }
 'Total Refs: ' + $ccRefList.count
 
-# Create Duplicate Reference list
-$dupeCheckSQL = "SELECT pid,cd,psd,dts FROM PGM WHERE PSD IS NOT NULL AND DTS > `'2021-01-01`'"
-$dupeCheckList = Invoke-Sqlcmd @sqlParams -Query $dupeCheckSQL
-
 # Process all entries from the notification file in cvsshare
 'Process Response notifications file'
 $responsePaths = '*covid-19*.csv' | getFullName
 $responseList = Import-CSV -Path $responsePaths | Where-Object { ($_.'Approved' -eq 'yes') -or ($_.'Approved' -eq 'no') }
 'Total Responses: ' + $responseList.count 
 $responseList | checkData | insertData
+
+testRun
