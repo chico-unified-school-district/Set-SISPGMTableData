@@ -111,19 +111,6 @@ function checkData {
   if (($refDate) -and ($refDate -ne 'NULL') -and ([int]$id -match "\d{5,6}")) { $_ }
  }
 }
-function checkDuplicates ($id, $cd, $psd) {
- process {
-  # $dupeCheckList | Where-Object { ($_.pid -eq $id) -and ($_.cd -eq $cd) -and ($_.psd -eq $psd) }
-  # "$id$cd$psd"
-  $id = $_.'Student ID'
-  $code = getCode $_.'Approved'
-  # Write-Verbose "$id $code"
-  $startRefDate = getCCRefDate $ccRefList $id | Select-Object -First 1
-  $myDate = $startRefDate.Replace('-', '')
-  $checkThis = "$id$code"
-  $dupeCheckList.Where( { ($_.pid -eq $id) -and ($_.cd -eq $cd) -and ($_.psd -eq $psd) })
- }
-}
 function insertData {
  begin { $i = 0; 'begin processing' }
  process {
@@ -136,10 +123,6 @@ function insertData {
   $endDate = formatDate $startRefDate 10
 
   # check for duplicate record
-
-  # if (checkDuplicates -id $id -cd $code -psd $startDate) {
-  #  '{0} {1} {2} Possible Duplicate' -f $id, $code, $startDate
-  # }
 
   $dupeCheckSQL = formatDupeCheckSQL -id $id -code $code -startDate $startDate
   $dupeCheck = Invoke-Sqlcmd @sqlParams -Query $dupeCheckSQL
@@ -165,8 +148,7 @@ $refPaths = 'CC_ELM.csv', 'CC_NOVAC.csv' | getFullName
 $ccRefList = Import-CSV -Path $refPaths | Where-Object { ($_.psd -ne 'NULL') -and ($null -ne $_.psd) }
 'Total Refs: ' + $ccRefList.count
 
-# Dupe refs
-# SELECT CONCAT(pid, cd, FORMAT(psd, 'yyyyMMdd')) as my FROM PGM WHERE PSD IS NOT NULL AND DTS > '2021-01-01'
+# Create Duplicate Reference list
 $dupeCheckSQL = "SELECT pid,cd,psd,dts FROM PGM WHERE PSD IS NOT NULL AND DTS > `'2021-01-01`'"
 $dupeCheckList = Invoke-Sqlcmd @sqlParams -Query $dupeCheckSQL
 
