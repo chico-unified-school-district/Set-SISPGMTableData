@@ -50,18 +50,12 @@ param (
 
 # Variable
 $sqlParams = @{
- ServerInstance = $SQLServer
- Database       = $SQLDatabase
- Credential     = $SQLCredential
+ Server     = $SQLServer
+ Database   = $SQLDatabase
+ Credential = $SQLCredential
 }
 
-
-Install-PackageProvider -Name NuGet -Force -Scope AllUsers -Confirm:$false
-
-if (-not(Get-Module -Name SqlServer -ListAvailable)) {
- Install-Module -Name SqlServer -Scope CurrentUser -Confirm:$false -AllowClobber -Force
-}
-Import-Module -Name SqlServer -Cmdlet 'Invoke-SqlCmd' -ErrorAction Stop | Out-Null
+. .\lib\Invoke-SqlCommand.ps1
 
 # if (Get-PSDrive -Name csvshare | Remove-PSDrive -Confirm:$false -Force -ErrorAction SilentlyContinue -ErrorVariable derp
 Write-Verbose "Adding PSDrive"
@@ -93,7 +87,7 @@ function formatSQL ([int]$scl, [int]$id, [int]$sq, $code, $startDate, $endDate) 
 }
 function getSCL ([int]$id) {
  $sql = "SELECT TOP 1 SC FROM STU WHERE ID = $id ORDER BY SC ASC"
- (Invoke-Sqlcmd @sqlParams -Query $sql).SC | Select-Object -First 1
+ (Invoke-SqlCommand @sqlParams -Query $sql).SC | Select-Object -First 1
 }
 function getCCRefDate ($refList, $id) {
  ($refList.Where( { $_.pid -eq $id | Where-Object { ($null -ne $_.psd) -or ($_.psd -ne 'null') } |
@@ -108,7 +102,7 @@ function getCode ($val) {
 }
 function getNewPGMSQ ($id) {
  # Iterate the sequence number (SQ) to ensure a unique insert
- $i = (Invoke-Sqlcmd @sqlParams -Query "Select TOP 1 SQ FROM PGM WHERE PID = $id ORDER BY SQ DESC").SQ
+ $i = (Invoke-SqlCommand @sqlParams -Query "Select TOP 1 SQ FROM PGM WHERE PID = $id ORDER BY SQ DESC").SQ
  if ((0 -eq $i) -or ($null -eq $i)) { 0 } else { $i++; $i }
 }
 
@@ -125,7 +119,7 @@ function insertData {
   # check for duplicate record
 
   $dupeCheckSQL = formatDupeCheckSQL -id $id -code $code -startDate $startDate
-  $dupeCheck = Invoke-Sqlcmd @sqlParams -Query $dupeCheckSQL
+  $dupeCheck = Invoke-SqlCommand @sqlParams -Query $dupeCheckSQL
   if ($dupeCheck) {
    '{0} {1} {2} Possible Duplicate' -f $id, $code, $startDate
   }
@@ -133,7 +127,7 @@ function insertData {
    $sqNum = getNewPGMSQ -id $id
    $scl = getSCL -id $id
    ($insertSQL = formatSQL -scl $scl -id $id -sq $sqNum -code $code -startDate $startDate -endDate $endDate)
-   if (-not($WhatIf)) { Invoke-Sqlcmd @sqlParams -Query $insertSQL }
+   if (-not($WhatIf)) { Invoke-SqlCommand @sqlParams -Query $insertSQL }
   }
   $i++
  }
