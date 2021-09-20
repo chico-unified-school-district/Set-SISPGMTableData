@@ -56,7 +56,7 @@ $sqlParams = @{
 }
 
 
-Install-PackageProvider -Name NuGet -Force -Scope AllUsers -Confirm:$false
+# Install-PackageProvider -Name NuGet -Force -Scope AllUsers -Confirm:$false
 
 if (-not(Get-Module -Name SqlServer -ListAvailable)) {
  Install-Module -Name SqlServer -Scope CurrentUser -Confirm:$false -AllowClobber -Force
@@ -65,7 +65,7 @@ Import-Module -Name SqlServer -Cmdlet 'Invoke-SqlCmd' -ErrorAction Stop | Out-Nu
 
 # if (Get-PSDrive -Name csvshare | Remove-PSDrive -Confirm:$false -Force -ErrorAction SilentlyContinue -ErrorVariable derp
 Write-Verbose "Adding PSDrive"
-New-PSDrive -name csvshare -Root $CSVRoot -PSProvider FileSystem -Credential $FileSystemCredential | Out-Null
+New-PSDrive -name csvshare -Root $CSVRoot -PSProvider FileSystem -Credential $FileSystemCredential -ErrorAction Stop | Out-Null
 
 function checkData {
  process {
