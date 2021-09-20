@@ -56,7 +56,7 @@ $sqlParams = @{
 }
 
 
-# Install-PackageProvider -Name NuGet -Force -Scope AllUsers -Confirm:$false
+Install-PackageProvider -Name NuGet -Force -Scope AllUsers -Confirm:$false
 
 if (-not(Get-Module -Name SqlServer -ListAvailable)) {
  Install-Module -Name SqlServer -Scope CurrentUser -Confirm:$false -AllowClobber -Force
