@@ -42,8 +42,8 @@ param (
  [System.Management.Automation.PSCredential]$SQLCredential,
  [System.Management.Automation.PSCredential]$FileSystemCredential,
  [Alias('FSCred')]
- [Parameter(Mandatory = $false)]
- [string]$CSVRoot = '\\sandman\EdServices\A2A',
+ [Parameter(Mandatory = $true)]
+ [string]$CSVRoot,
  [SWITCH]$WhatIf
 )
 
@@ -93,7 +93,7 @@ function getSCL ([int]$id) {
 }
 function getCCRefDate ($refList, $id) {
  ($refList.Where( { $_.pid -eq $id | Where-Object { ($null -ne $_.psd) -or ($_.psd -ne 'null') } |
-    Sort-Object -Property psd -Descending | Select-Object -First 1 })).psd
+   Sort-Object -Property psd -Descending | Select-Object -First 1 })).psd
 }
 function getCode ($val) {
  switch ($val) {
