@@ -40,8 +40,9 @@ param (
  [Parameter(Mandatory = $true)]
  [Alias('DBCred')]
  [System.Management.Automation.PSCredential]$SQLCredential,
- [System.Management.Automation.PSCredential]$FileSystemCredential,
+ [Parameter(Mandatory = $true)]
  [Alias('FSCred')]
+ [System.Management.Automation.PSCredential]$FileSystemCredential,
  [Parameter(Mandatory = $true)]
  [string]$CSVRoot,
  [SWITCH]$WhatIf
