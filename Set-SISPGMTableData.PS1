@@ -144,10 +144,10 @@ $ccRefList = Import-CSV -Path $refPaths | Where-Object { ($_.psd -ne 'NULL') -an
 'Total Refs: ' + $ccRefList.count
 
 # Process all entries from the notification file in cvsshare
-'Process Response notifications file'
-$responsePaths = '*covid-19*.csv' | getFullName
+'Process Response notifications file(s)'
+$responsePaths = '*covid*.csv' | getFullName
 $responseList = Import-CSV -Path $responsePaths | Where-Object { ($_.'Approved' -eq 'yes') -or ($_.'Approved' -eq 'no') }
-'Total Responses: ' + $responseList.count 
+'Total Responses: ' + $responseList.count
 $responseList | checkData | insertData
 
 testRun
