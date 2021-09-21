@@ -135,19 +135,30 @@ function insertData {
 }
 function testRun { if ($WhatIf) { '[TEST RUN]' } }
 # Processing
-testRun
+function callRuns {
+ testRun
+ # Create reference object from all CC*.csv files in csvshare
+ 'Ref Lists'
+ $refPaths = 'CC_ELM.csv', 'CC_NOVAC.csv' | getFullName
+ $ccRefList = Import-CSV -Path $refPaths | Where-Object { ($_.psd -ne 'NULL') -and ($null -ne $_.psd) }
+ 'Total Refs: ' + $ccRefList.count
+ 
+ # Process all entries from the notification file in cvsshare
+ 'Process Response notifications file(s)'
+ $responsePaths = '*covid*.csv' | getFullName
+ $responseList = Import-CSV -Path $responsePaths | Where-Object { ($_.'Approved' -eq 'yes') -or ($_.'Approved' -eq 'no') }
+ 'Total Responses: ' + $responseList.count
+ $responseList | checkData | insertData
+ testRun
 
-# Create reference object from all CC*.csv files in csvshare
-'Ref Lists'
-$refPaths = 'CC_ELM.csv', 'CC_NOVAC.csv' | getFullName
-$ccRefList = Import-CSV -Path $refPaths | Where-Object { ($_.psd -ne 'NULL') -and ($null -ne $_.psd) }
-'Total Refs: ' + $ccRefList.count
+ if ( ((Get-Date) -ge (Get-Date '9:00am')) -or $WhatIf) {
+  'Do not run passed a certain hour'
+  return
+ }
+ $wait = 60 * 15
+ 'Next run at {0}' -f (Get-Date (get-date).AddSeconds($wait) -f HH:mm:ss)
+ Start-Sleep $wait
+ callRuns
+}
 
-# Process all entries from the notification file in cvsshare
-'Process Response notifications file(s)'
-$responsePaths = '*covid*.csv' | getFullName
-$responseList = Import-CSV -Path $responsePaths | Where-Object { ($_.'Approved' -eq 'yes') -or ($_.'Approved' -eq 'no') }
-'Total Responses: ' + $responseList.count
-$responseList | checkData | insertData
-
-testRun
+callRuns
