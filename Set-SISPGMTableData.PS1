@@ -61,6 +61,10 @@ $sqlParams = @{
 Write-Verbose "Adding PSDrive"
 New-PSDrive -name csvshare -Root $CSVRoot -PSProvider FileSystem -Credential $FileSystemCredential -ErrorAction Stop | Out-Null
 
+function getEsd ($refList, $id) {
+  ($refList.Where( { $_.pid -eq $id | Where-Object { ($null -ne $_.esd) -or ($_.esd -ne 'null') } |
+   Sort-Object -Property esd -Descending | Select-Object -First 1 })).esd
+}
 function checkData {
  process {
   $id = $_.'Student ID'
@@ -82,8 +86,8 @@ function formatDate ($someDate, $days) {
 function formatDupeCheckSQL ([int]$id, $code, $startDate) {
  "SELECT pid FROM PGM WHERE pid = $id AND CD = `'$code`' AND PSD = `'$startDate`';"
 }
-function formatSQL ([int]$scl, [int]$id, [int]$sq, $code, $startDate, $endDate) {
- "INSERT INTO PGM(SCL,PID, SQ, CD, ESD, PSD, PED) VALUES ($scl,$id,$sq,`'$code`',`'$startDate`',`'$startDate`',`'$endDate`');"
+function formatSQL ([int]$scl, [int]$id, [int]$sq, $code, $esd, $startDate, $endDate) {
+ "INSERT INTO PGM(SCL,PID, SQ, CD, ESD, PSD, PED) VALUES ($scl,$id,$sq,`'$code`',`'$esd`',`'$startDate`',`'$endDate`');"
 }
 function getSCL ([int]$id) {
  $sql = "SELECT TOP 1 SC FROM STU WHERE ID = $id ORDER BY SC ASC"
@@ -113,6 +117,7 @@ function insertData {
   $code = getCode $_.'Approved'
   Write-Verbose "$id $code"
   $startRefDate = getCCRefDate $ccRefList $id | Select-Object -First 1
+  $esd = formatDate (getEsd $ccRefList $id | Select-Object -First 1)
   $startDate = formatDate $startRefDate
   $endDate = formatDate $startRefDate 10
 
@@ -126,7 +131,7 @@ function insertData {
   else {
    $sqNum = getNewPGMSQ -id $id
    $scl = getSCL -id $id
-   ($insertSQL = formatSQL -scl $scl -id $id -sq $sqNum -code $code -startDate $startDate -endDate $endDate)
+   ($insertSQL = formatSQL -scl $scl -id $id -sq $sqNum -code $code -esd $esd -startDate $startDate -endDate $endDate)
    if (-not($WhatIf)) { Invoke-SqlCommand @sqlParams -Query $insertSQL }
   }
   $i++
@@ -134,7 +139,7 @@ function insertData {
  end { 'Processed Records: ' + $i; 'End insertData' }
 }
 function testRun { if ($WhatIf) { '[TEST RUN]' } }
-# Processing
+
 function callRuns {
  testRun
  # Create reference object from all CC*.csv files in csvshare
