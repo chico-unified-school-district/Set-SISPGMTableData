@@ -59,7 +59,7 @@ $sqlParams = @{
 
 # if (Get-PSDrive -Name csvshare | Remove-PSDrive -Confirm:$false -Force -ErrorAction SilentlyContinue -ErrorVariable derp
 Write-Verbose "Adding PSDrive"
-New-PSDrive -name csvshare -Root $CSVRoot -PSProvider FileSystem -Credential $FileSystemCredential -ErrorAction Stop | Out-Null
+New-PSDrive -name csvshare -Root $CSVRoot -PSProvider FileSystem -Credential $FileSystemCredential -ErrorAction Stop
 
 function getEsd ($refList, $id) {
   ($refList.Where( { $_.pid -eq $id | Where-Object { ($null -ne $_.esd) -or ($_.esd -ne 'null') } |
@@ -97,13 +97,23 @@ function getCCRefDate ($refList, $id) {
  ($refList.Where( { $_.pid -eq $id | Where-Object { ($null -ne $_.psd) -or ($_.psd -ne 'null') } |
    Sort-Object -Property psd -Descending | Select-Object -First 1 })).psd
 }
-function getCode ($val) {
- switch ($val) {
-  'yes' { 'MQ' }
-  'no' { 'HQ' }
-  default { $null }
+# function getCode ($val) {
+#  switch ($val) {
+#   'yes' { 'MQ' }
+#   'no' { 'HQ' }
+#   default { $null }
+#  }
+# }
+
+function getCode {
+ proceess {
+  $response = $_."My student will be participating in the following quarantine option for the next two weeks*:"
+  if ($response -match "option 1") { 'HQ'; return }
+  if ($response -match "option 2") { 'MQ'; return }
+  $Null
  }
 }
+
 function getNewPGMSQ ($id) {
  # Iterate the sequence number (SQ) to ensure a unique insert
  $i = (Invoke-SqlCommand @sqlParams -Query "Select TOP 1 SQ FROM PGM WHERE PID = $id ORDER BY SQ DESC").SQ
@@ -144,14 +154,15 @@ function callRuns {
  testRun
  # Create reference object from all CC*.csv files in csvshare
  'Ref Lists'
- $refPaths = 'CC_ELM.csv', 'CC_NOVAC.csv' | getFullName
+ $refPaths = 'CC_VAC.csv', 'CC_NOVAC.csv' | getFullName
  $ccRefList = Import-CSV -Path $refPaths | Where-Object { ($_.psd -ne 'NULL') -and ($null -ne $_.psd) }
  'Total Refs: ' + $ccRefList.count
  
  # Process all entries from the notification file in cvsshare
  'Process Response notifications file(s)'
  $responsePaths = '*covid*.csv' | getFullName
- $responseList = Import-CSV -Path $responsePaths | Where-Object { ($_.'Approved' -eq 'yes') -or ($_.'Approved' -eq 'no') }
+ $responseList = Import-CSV -Path $responsePaths
+ # $responseList = Import-CSV -Path $responsePaths | Where-Object { ($_.'Approved' -eq 'yes') -or ($_.'Approved' -eq 'no') }
  'Total Responses: ' + $responseList.count
  $responseList | checkData | insertData
  testRun
