@@ -106,7 +106,7 @@ function getCCRefDate ($refList, $id) {
 # }
 
 function getCode {
- proceess {
+ process {
   $response = $_."My student will be participating in the following quarantine option for the next two weeks*:"
   if ($response -match "option 1") { 'HQ'; return }
   if ($response -match "option 2") { 'MQ'; return }
@@ -124,7 +124,8 @@ function insertData {
  begin { $i = 0; 'begin processing' }
  process {
   $id = $_.'Student ID'
-  $code = getCode $_.'Approved'
+  # $code = getCode $_.'Approved'
+  $code = $_ | getCode
   Write-Verbose "$id $code"
   $startRefDate = getCCRefDate $ccRefList $id | Select-Object -First 1
   $esd = formatDate (getEsd $ccRefList $id | Select-Object -First 1)
